@@ -1,4 +1,5 @@
 require(plotrix)
+require(logging)
 
 
 checkIntersect<-function(horizontalList, verticalList)
@@ -11,7 +12,7 @@ checkIntersect<-function(horizontalList, verticalList)
         && vertical[[1]][[1]] < horizontal[[2]][[1]]
         && vertical[[1]][[2]] < horizontal[[1]][[2]] 
         && horizontal[[1]][[2]] < vertical[[2]][[2]])
-        return(TRUE)
+      return(TRUE)
     }
   }
   return(FALSE)
@@ -137,7 +138,7 @@ generateRandomChamber<-function(lengthMax, lengthMin, rects)
 }
 
 
-drawChamber<- function(chamber)
+drawChamber<-function(chamber)
 {
   minX <- chamber[[1]][[1]][[1]]
   maxX <- chamber[[1]][[2]][[1]]
@@ -189,11 +190,12 @@ calculateMinCameras<-function(chamber, radius)
   return(totalCameras)
 }
 
+
 generateStartPoint<-function(chamber, maxCameras, minCameras)
 {
-  circleList<-list()
+  camerasList<-list()
   for(i in 1:maxCameras)
-    circleList[[i]]<-NA
+    camerasList[[i]]<-NA
   totalArea<-0
   for(rectangle in chamber)
   {
@@ -213,11 +215,11 @@ generateStartPoint<-function(chamber, maxCameras, minCameras)
     {
       camX<-runif(1, rectangle[[1]][[1]], rectangle[[2]][[1]])
       camY<- runif(1, rectangle[[1]][[2]], rectangle[[2]][[2]])
-      circleList[[idx]]<-c(camX, camY)
+      camerasList[[idx]]<-c(camX, camY)
       idx<-idx + 1
     }
   }
-  return(list(circleList, "quality"=-1))
+  return(list(camerasList, "quality"=-1))
 }
 
 
@@ -230,97 +232,56 @@ getDummyChamber<-function()
 }
 
 
-
 SimulatedAnnealling<-function(startSolution, chamber, radius, A, B)
 {
-  require(logging)
   logReset()
   basicConfig()
   addHandler(writeToFile, file="cameraslog.log", level='INFO')
-  with(getLogger(), names(handlers))
-  
+  with(getLogger(), names(handlers))  
   history<-initHistory(startSolution)
-  #print("dupa")
-  history[[1]][["quality"]]<-evaluate(history[[1]][[1]], chamber, radius, A, B)
-  #print(history[[1]])
-  #stop()
-  #print("dupa")
+  history[[1]][["quality"]]<-evaluate(history[[1]], chamber, radius, A, B)
   model <- initModel(history)
-  #print("dupa")
   while(!conditionFulfilled(model))
   {
     selectedPoint <- selection(history, model)
-    #print(selectedPoint[["quality"]])
     loginfo('quality %f point %s', selectedPoint[["quality"]], selectedPoint[[1]])
-    
-    #print(selectedPoint)
-    #print("Teraz sam 1")
-    #print(selectedPoint[[1]])
-    #print(selectedPoint[["quality"]])
-    newPoint<- variation(selectedPoint[[1]], chamber, radius)
-    #print(newPoint)
-    newPoint <- list(newPoint, "quality"=evaluate(newPoint, chamber, radius, A, B))
-    #print(newPoint)
-    #print(newPoint)
-
+    newPoint<- variation(selectedPoint, chamber, radius)
+    newPoint[["quality"]]<-evaluate(newPoint, chamber, radius, A, B)
     history <- pushBack(history, newPoint)
     model <- updateModel(model, history)
   }
   return(selection(history, model))
 }
 
+
 initHistory<-function(startSolution)
 {
   return(list(startSolution))
 }
 
-evaluate2<-function(circleList, chamber, radius, A, B)
-{
-  cameras <- 0
-  for(circle in circleList)
-  {
-    if(length(circle) != 1)
-    {
-      cameras <- cameras + 1
-      #print("AKUKU:")
-      #print(cameras)
-    }
-    #print(cameras)
-  }
-  #print(cameras)
-  #print("nowy")
-  #print(cameras)
-  #print(sum(!is.na(circleList)))
-}
 
-evaluate<-function(circleList, chamber, radius, A, B)
+evaluate<-function(soution, chamber, radius, A, B)
 {
-
-  
-  cameras <- sum(!is.na(circleList))
+  cameras <- sum(!is.na(solution[[1]]))
   noCovered <- 0
-  #print("evaluate")
   for(rectangle in chamber)
   {
-    #print("Jestem")
-    rectNoCovered <- doSample(100, rectangle, circleList, radius)
+    rectNoCovered <- doSample(100, rectangle, solution[[1]], radius)
     noCovered <- noCovered + rectNoCovered
   }
-  #print("po evaluate")
-  #print(cameras)
-  #print(noCovered)
   quality <- A * cameras + B * noCovered
   return(quality)
 }
 
-dist <- function(x1, x2)
+
+dist<-function(x1, x2)
 {
   return(sqrt(sum((x1 - x2) ^ 2)))
 }
 
-doSample <- function(numberOfSamplesPerUnit, rectangle, cameras, radius)
+
+doSample<-function(numberOfSamplesPerUnit, rectangle, cameras, radius)
 {
-  
   lenX <-rectangle[[2]][[1]] - rectangle[[1]][[1]]
   lenY <-rectangle[[2]][[2]] - rectangle[[1]][[2]]
   field <- lenX * lenY
@@ -333,7 +294,7 @@ doSample <- function(numberOfSamplesPerUnit, rectangle, cameras, radius)
     point <- c(x,y)
     for(j in 1:length(cameras))
     {
-      if(length(cameras[[j]]) == 1)
+      if(is.na(cameras[[j]]))
         next
       distance <- dist(point,cameras[[j]])
       if(distance < radius)
@@ -348,109 +309,100 @@ doSample <- function(numberOfSamplesPerUnit, rectangle, cameras, radius)
   return(missRatio*field)
 }
 
-initModel <- function(history)
+
+initModel<-function(history)
 {
   return(list("best"=1,"iter"=1,"temp"=10))
 }
 
-selection <- function(history, model)
+
+selection<-function(history, model)
 {
   return(history[[model[["best"]]]])
 }
 
+
 conditionFulfilled<-function(model)
 {
-  if(model["iter"] > 100)
+  if(model["iter"] > 200)
     return(TRUE)
   return(FALSE)
 }
 
-updateModel <- function(model, history)
+
+updateModel<-function(model, history)
 {
   model[["iter"]]<- model[["iter"]] + 1
   model[["temp"]]<- model[["temp"]]/model[["iter"]]
   # dorobic sprawdzanie zgodnie z temperatura
 
   bestQuality<- history[[model[["best"]]]][["quality"]]
-  #print(bestQuality)
-  #print("Jestem tu")
+
   x <- history[[length(history)]]
-  #print(history)
-  #print("Jestem tu")
+
   if(bestQuality > history[[length(history)]][["quality"]])
     model[["best"]]<- length(history)
-  #print("jestem")
+
   return(model)
 }
 
 
 pushBack <- function(history, newPoint)
 {
-  # dostaje zly new point!
-  #print(newPoint)
   history[[length(history)+1]] <- newPoint
-  #print(history)
   return(history)
 }
 
 
-normVariation<-function(point, radius)
+normVariation<-function(point, radius, chamber)
 {
-  #print(point)
-  point[[1]]<- point[[1]] + rnorm(1)*radius
-  point[[2]]<- point[[2]] + rnorm(1)*radius
+  repeat
+  {
+    newX<- point[[1]] + rnorm(1)*radius
+    newY<- point[[2]] + rnorm(1)*radius
+    insideRect<-FALSE
+    for(rectangle in chamber)
+    {
+      if(rectangle[[1]][[1]] <= newX && newX <= rectangle[[2]][[1]]
+        && rectangle[[1]][[2]] <= newY && newY <= rectangle[[2]][[2]])
+      {
+        insideRect<-TRUE
+        break
+      }
+    }
+    if(insideRect)
+      break
+  }
+  point[[1]]<-newX
+  point[[2]]<-newY
   return(point)
 }
 
-variation <- function(selectedPoint, chamber, radius)
+
+variation<-function(selectedPoint, chamber, radius)
 {
   index <- sample(1:length(selectedPoint), 1)
-#print("jestem tu")
-  #print(selectedPoint)
-
-  selectedElement <- selectedPoint[[index]]
-  #print(selectedPoint)
-  #print(index)
-  #print(selectedElement)
-  #print("teraz tam")
+  selectedElement <- selectedPoint[[1]][[index]]
   if(is.na(selectedElement))
   {
-    #print("NA")
-    #select random rectangle from room
     rectIndex <- sample(1:length(chamber), 1)
     rectangle <- chamber[[rectIndex]]
-    #print("Rect:")
-    #print(rectIndex)
-    #create new camera at random point
     x <- runif(1, rectangle[[1]][[1]], rectangle[[2]][[1]])
     y <- runif(1, rectangle[[1]][[2]], rectangle[[2]][[2]])
     point <- c(x,y)
-    #print("New camera at point:")
-    #print(point)
-    selectedPoint[[index]] <- point
+    selectedPoint[[1]][[index]] <- point
   }
   else
   {
     decision <- sample(1:2, 1)
     if(decision == 1)
-    {
-      #print("modify")
-      #modify
-      selectedPoint[[index]] <- normVariation(selectedPoint[[index]], radius)
-    }
+      selectedPoint[[1]][[index]] <- normVariation(selectedPoint[[1]][[index]], radius, chamber)
     else
-    {
-      #print("remove")
-      #remove
-      #print(selectedPoint)
-      selectedPoint[[index]] <- NA
-      #print(selectedPoint)
-    }
+      selectedPoint[[1]][[index]] <- NA
   }
-  #print("KONCZE")
-  #print(selectedPoint)
   return(selectedPoint)
 }
+
 
 drawSolution<-function(chamber, solution, radius)
 {
@@ -472,28 +424,28 @@ drawSolution<-function(chamber, solution, radius)
   deltaX <- maxX - minX
   deltaY <- maxY - minY
   if(deltaY > deltaX)
-    lenn <- deltaY
+    lenMax <- deltaY
   else
-    lenn <- deltaX
-  plot(minX:(minX+lenn), minY:(minY+lenn), type= "n", xlab = "", ylab = "")
+    lenMax <- deltaX
+  plot(minX:(minX+lenMax), minY:(minY+lenMax), type= "n", xlab = "", ylab = "")
   for(rectangle in chamber)
     rect(rectangle[[1]][[1]], rectangle[[1]][[2]], rectangle[[2]][[1]], rectangle[[2]][[2]])
   for(circle in solution)
   {
-    #print(circle)
     if(length(circle) == 1)
       next
     draw.circle(circle[[1]],circle[[2]],radius,border="green",lty=1,lwd=1)
   }
 }
 
-radius<- 1
-chamber <- generateRandomChamber(10, 7, 5)
-#print("jestm")
+
+radius<- 2.5
+chamber <- generateRandomChamber(10, 7, 2)
+
 maxCameras<-calculateMaxCameras(chamber, radius)
 minCameras<-calculateMinCameras(chamber, radius)
 solution<- generateStartPoint(chamber, maxCameras, minCameras)
-#print("jestm")
+
 solution <- SimulatedAnnealling(solution, chamber, radius, 3,30)
 
 drawSolution(chamber, solution[[1]], radius)
