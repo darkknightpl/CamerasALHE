@@ -232,7 +232,7 @@ getDummyChamber<-function()
 }
 
 
-SimulatedAnnealling<-function(startSolution, chamber, radius, A, B)
+SimulatedAnnealling<-function(startSolution, chamber, radius, A, B, initTemp, maxIter)
 {
   logReset()
   basicConfig()
@@ -240,8 +240,8 @@ SimulatedAnnealling<-function(startSolution, chamber, radius, A, B)
   with(getLogger(), names(handlers))  
   history<-initHistory(startSolution)
   history[[1]][["quality"]]<-evaluate(history[[1]], chamber, radius, A, B)
-  model <- initModel(history)
-  while(!conditionFulfilled(model))
+  model <- initModel(history, initTemp)
+  while(!conditionFulfilled(model, maxIter))
   {
     selectedPoint <- selection(history, model)
     loginfo('quality %f point %s', selectedPoint[["quality"]], selectedPoint[[1]])
@@ -260,7 +260,7 @@ initHistory<-function(startSolution)
 }
 
 
-evaluate<-function(soution, chamber, radius, A, B)
+evaluate<-function(solution, chamber, radius, A, B)
 {
   cameras <- sum(!is.na(solution[[1]]))
   noCovered <- 0
@@ -310,9 +310,9 @@ doSample<-function(numberOfSamplesPerUnit, rectangle, cameras, radius)
 }
 
 
-initModel<-function(history)
+initModel<-function(history, initTemp)
 {
-  return(list("best"=1,"iter"=1,"temp"=10))
+  return(list("best"=1,"iter"=1,"initTemp"=initTemp))
 }
 
 
@@ -322,9 +322,9 @@ selection<-function(history, model)
 }
 
 
-conditionFulfilled<-function(model)
+conditionFulfilled<-function(model, maxIter)
 {
-  if(model["iter"] > 200)
+  if(model["iter"] > maxIter)
     return(TRUE)
   return(FALSE)
 }
@@ -333,16 +333,16 @@ conditionFulfilled<-function(model)
 updateModel<-function(model, history)
 {
   model[["iter"]]<- model[["iter"]] + 1
-  model[["temp"]]<- model[["temp"]]/model[["iter"]]
-  # dorobic sprawdzanie zgodnie z temperatura
-
   bestQuality<- history[[model[["best"]]]][["quality"]]
-
-  x <- history[[length(history)]]
-
   if(bestQuality > history[[length(history)]][["quality"]])
+  {
     model[["best"]]<- length(history)
-
+    return(model)
+  }
+  temp <- model[["initTemp"]] / model[["iter"]]
+  pa <- exp(-(history[[length(history)]][["quality"]]-bestQuality)/temp)
+  if(runif(1,0,1) < pa)
+    model[["best"]]<- length(history)
   return(model)
 }
 
@@ -430,7 +430,7 @@ drawSolution<-function(chamber, solution, radius)
   plot(minX:(minX+lenMax), minY:(minY+lenMax), type= "n", xlab = "", ylab = "")
   for(rectangle in chamber)
     rect(rectangle[[1]][[1]], rectangle[[1]][[2]], rectangle[[2]][[1]], rectangle[[2]][[2]])
-  for(circle in solution)
+  for(circle in solution[[1]])
   {
     if(length(circle) == 1)
       next
@@ -439,13 +439,14 @@ drawSolution<-function(chamber, solution, radius)
 }
 
 
-radius<- 2.5
-chamber <- generateRandomChamber(10, 7, 2)
+run<-function(radius, A, B, initTemp, rectNumber, maxLengh, minLength, maxIter)
+{
+  chamber<-generateRandomChamber(maxLengh, minLength, rectNumber)
+  maxCameras<-calculateMaxCameras(chamber, radius)
+  minCameras<-calculateMinCameras(chamber, radius)
+  solution<-generateStartPoint(chamber, maxCameras, minCameras)
+  bestSolution<-SimulatedAnnealling(solution, chamber, radius, A, B, initTemp, maxIter)
+  drawSolution(chamber, solution, radius)
+}
 
-maxCameras<-calculateMaxCameras(chamber, radius)
-minCameras<-calculateMinCameras(chamber, radius)
-solution<- generateStartPoint(chamber, maxCameras, minCameras)
-
-solution <- SimulatedAnnealling(solution, chamber, radius, 3,30)
-
-drawSolution(chamber, solution[[1]], radius)
+run(1, 0.5, 0.5, 10, 2, 5, 2, 1000)
