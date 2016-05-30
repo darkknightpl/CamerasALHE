@@ -233,6 +233,12 @@ getDummyChamber<-function()
 
 SimulatedAnnealling<-function(startSolution, chamber, radius, A, B)
 {
+  require(logging)
+  logReset()
+  basicConfig()
+  addHandler(writeToFile, file="cameraslog.log", level='INFO')
+  with(getLogger(), names(handlers))
+  
   history<-initHistory(startSolution)
   #print("dupa")
   history[[1]][["quality"]]<-evaluate(history[[1]][[1]], chamber, radius, A, B)
@@ -244,8 +250,8 @@ SimulatedAnnealling<-function(startSolution, chamber, radius, A, B)
   while(!conditionFulfilled(model))
   {
     selectedPoint <- selection(history, model)
-    print(selectedPoint[["quality"]])
-    
+    #print(selectedPoint[["quality"]])
+    loginfo('quality %f point %s', selectedPoint[["quality"]], selectedPoint[[1]])
     
     #print(selectedPoint)
     #print("Teraz sam 1")
@@ -354,7 +360,7 @@ selection <- function(history, model)
 
 conditionFulfilled<-function(model)
 {
-  if(model["iter"] > 20)
+  if(model["iter"] > 100)
     return(TRUE)
   return(FALSE)
 }
