@@ -236,11 +236,30 @@ getDummyChamber<-function()
 }
 
 
-SimulatedAnnealling<-function(startSolution, chamber, radius, A, B, initTemp, maxIter)
+prepareForLog<-function(selectedPoint)
+{
+  placedCameras <- list()
+  counter <- 0
+  for(i in 1:length(selectedPoint[[1]]))
+  {
+    if(is.na(selectedPoint[[1]][[i]]) == FALSE)
+    {
+      counter <- counter + 1
+      camera <- selectedPoint[[1]][[i]]
+      cameraInfo <- c(format(round(camera[[1]], 2), nsmall = 2),format(round(camera[[2]], 2), nsmall = 2))
+      placedCameras[[length(placedCameras)+1]] <- cameraInfo
+    }
+  }
+  return(list(counter,placedCameras))
+}
+
+
+SimulatedAnnealling<-function(startSolution, chamber, radius, A, B, initTemp, maxIter, logFilename)
 {
   logReset()
   basicConfig()
-  addHandler(writeToFile, file="cameraslog.log", level='INFO')
+  if (file.exists(logFilename)) file.remove(logFilename)
+  addHandler(writeToFile, file=logFilename, level='INFO')
   with(getLogger(), names(handlers))  
   history<-initHistory(startSolution)
   history[[1]][["quality"]]<-evaluate(history[[1]], chamber, radius, A, B)
@@ -248,7 +267,8 @@ SimulatedAnnealling<-function(startSolution, chamber, radius, A, B, initTemp, ma
   while(!conditionFulfilled(model, maxIter))
   {
     selectedPoint <- selection(history, model)
-    loginfo('quality %f point %s', selectedPoint[["quality"]], selectedPoint[[1]])
+    logInfo<-prepareForLog(selectedPoint)
+    loginfo('quality: %f numberOfCameras: %d coordinates: %s', selectedPoint[["quality"]], logInfo[[1]], logInfo[[2]])
     newPoint<- variation(selectedPoint, chamber, radius)
     newPoint[["quality"]]<-evaluate(newPoint, chamber, radius, A, B)
     history <- pushBack(history, newPoint)
@@ -455,9 +475,25 @@ run<-function(radius, A, B, initTemp, rectNumber, maxLengh, minLength, maxIter)
   maxCameras<-calculateMaxCameras(chamber, radius)
   minCameras<-calculateMinCameras(chamber, radius)
   solution<-generateStartPoint(chamber, maxCameras, minCameras)
-  drawSolution("random.pdf", chamber, solution, radius)
-  bestSolution<-SimulatedAnnealling(solution, chamber, radius, A, B, initTemp, maxIter)
-  drawSolution("best.pdf", chamber, bestSolution, radius)
+  drawSolution("random_1.pdf", chamber, solution, radius)
+  bestSolution<-SimulatedAnnealling(solution, chamber, radius, A, B, initTemp, maxIter, "cameraslog_1.log")
+  drawSolution("best_run1.pdf", chamber, bestSolution, radius)
+  solution<-generateStartPoint(chamber, maxCameras, minCameras)
+  drawSolution("random_2.pdf", chamber, solution, radius)
+  bestSolution<-SimulatedAnnealling(solution, chamber, radius, A, B, initTemp, maxIter, "cameraslog_2.log")
+  drawSolution("best_run2.pdf", chamber, bestSolution, radius)
+  solution<-generateStartPoint(chamber, maxCameras, minCameras)
+  drawSolution("random_3.pdf", chamber, solution, radius)
+  bestSolution<-SimulatedAnnealling(solution, chamber, radius, A, B, initTemp, maxIter, "cameraslog_3.log")
+  drawSolution("best_run3.pdf", chamber, bestSolution, radius)
+  solution<-generateStartPoint(chamber, maxCameras, minCameras)
+  drawSolution("random_4.pdf", chamber, solution, radius)
+  bestSolution<-SimulatedAnnealling(solution, chamber, radius, A, B, initTemp, maxIter, "cameraslog_4.log")
+  drawSolution("best_run4.pdf", chamber, bestSolution, radius)
+  solution<-generateStartPoint(chamber, maxCameras, minCameras)
+  drawSolution("random_5.pdf", chamber, solution, radius)
+  bestSolution<-SimulatedAnnealling(solution, chamber, radius, A, B, initTemp, maxIter, "cameraslog_5.log")
+  drawSolution("best_run5.pdf", chamber, bestSolution, radius)
 }
 
-run(1, 0.35, 0.65, 10, 5, 5, 2, 200)
+run(1, 0.35, 0.65, 10, 2, 5, 2, 10)
