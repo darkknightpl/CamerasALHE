@@ -496,4 +496,4 @@ run<-function(radius, A, B, initTemp, rectNumber, maxLengh, minLength, maxIter)
   drawSolution("best_run5.pdf", chamber, bestSolution, radius)
 }
 
-run(1, 0.35, 0.65, 10, 2, 5, 2, 10)
+run(1, 0.35, 0.65, 10, 2, 5, 2, 100)
