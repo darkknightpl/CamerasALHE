@@ -293,7 +293,8 @@ evaluate<-function(solution, chamber, radius, A, B)
     rectNoCovered <- doSample(100, rectangle, solution[[1]], radius)
     noCovered <- noCovered + rectNoCovered
   }
-  quality <- A * cameras + B * noCovered
+  heuristicValue <- noCovered / (pi*radius*radius)
+  quality <- A * cameras + B * heuristicValue
   return(quality)
 }
 
